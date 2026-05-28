@@ -1,8 +1,10 @@
 # Contrail
 
-> ADS-B flight tracking pipeline with historical playback — SDR receiver to MySQL to interactive map.
+> Work in progress: pipeline is functional on paper, build is in progress.
 
-Contrail is a self-hosted ADS-B flight tracking system built around a RTL-SDR V3 receiver and Dump1090. It captures aircraft position data continuously, stores it in MySQL, and serves it through a Leaflet.js web interface with a selectable time window — so you can watch live traffic or replay any window of history.
+ADS-B flight tracking pipeline with historical playback. SDR receiver to MySQL to interactive map.
+
+Contrail is a self-hosted ADS-B flight tracking system built around a RTL-SDR V3 receiver and Dump1090. It captures aircraft position data continuously, stores it in MySQL, and serves it through a Leaflet.js web interface with a selectable time window so you can watch live traffic or replay any window of history.
 
 The built-in Dump1090 web interface shows real-time positions but doesn't record tracks or let you go back in time. Contrail fills that gap.
 
@@ -10,12 +12,12 @@ The built-in Dump1090 web interface shows real-time positions but doesn't record
 
 ## Features
 
-- **Continuous ingestion** — Python poller reads Dump1090's live JSON output and writes position records to MySQL every second
-- **Full track history** — every position, altitude, speed, heading, and squawk code stored with a timestamp
-- **Interactive map** — Leaflet.js frontend with aircraft markers and rendered flight tracks
-- **Selectable time window** — default last 3 hours, adjustable up to 24 hours or any historical range
-- **Historical playback** — scrub back through stored data to any point in time
-- **Least-privilege DB design** — separate ingest and read-only MySQL users; ingest account cannot query data
+- **Continuous ingestion** _ Python poller reads Dump1090's live JSON output and writes position records to MySQL every second
+- **Full track history** _ every position, altitude, speed, heading, and squawk code stored with a timestamp
+- **Interactive map** _ Leaflet.js frontend with aircraft markers and rendered flight tracks
+- **Selectable time window** _ default last 3 hours, adjustable up to 24 hours or more
+- **Historical playback** _ scrub back through stored data to any point in time
+- **Least-privilege DB design** _ separate ingest and read-only MySQL users; ingest account cannot query data
 
 ---
 
@@ -47,7 +49,7 @@ RTL-SDR V3 dongle
   contrail-ingest.py
   (polls JSON, filters, writes to MySQL)
        ↓
-  MySQL — contrail database
+  MySQL contrail database
   (flights + positions tables)
        ↓
   contrail-api.py (Flask/FastAPI)
@@ -79,7 +81,7 @@ CREATE TABLE flights (
 
 ### positions
 
-One row per position report received from Dump1090. High write volume — indexed for time-window queries.
+One row per position report received from Dump1090. High write volume, indexed for time-window queries.
 
 ```sql
 CREATE TABLE positions (
@@ -105,15 +107,15 @@ CREATE TABLE positions (
 
 ## Database Users
 
-Contrail uses two MySQL users — ingest writes, the API reads. Neither has more access than it needs.
+Two MySQL users. Ingest writes, the API reads. Neither has more access than it needs.
 
 ```sql
--- ingest account — INSERT only, no SELECT
+-- ingest account, INSERT only, no SELECT
 CREATE USER 'contrail_ingest'@'localhost' IDENTIFIED BY 'strongpassword';
 GRANT INSERT ON contrail.flights TO 'contrail_ingest'@'localhost';
 GRANT INSERT ON contrail.positions TO 'contrail_ingest'@'localhost';
 
--- read account — SELECT only, no writes
+-- read account, SELECT only, no writes
 CREATE USER 'contrail_read'@'localhost' IDENTIFIED BY 'strongpassword';
 GRANT SELECT ON contrail.* TO 'contrail_read'@'localhost';
 
@@ -127,17 +129,17 @@ FLUSH PRIVILEGES;
 ```
 contrail/
 ├── ingest/
-│   ├── contrail-ingest.py      # Dump1090 JSON poller → MySQL
+│   ├── contrail-ingest.py      # Dump1090 JSON poller to MySQL
 │   └── requirements.txt
 ├── api/
-│   ├── app.py                  # Flask/FastAPI — time window queries
+│   ├── app.py                  # Flask/FastAPI time window queries
 │   └── requirements.txt
 ├── frontend/
 │   ├── index.html              # Leaflet map + time controls
 │   ├── map.js                  # Track rendering, marker updates
 │   └── style.css
 ├── sql/
-│   ├── schema.sql              # Full schema — flights + positions
+│   ├── schema.sql              # Full schema, flights + positions
 │   └── users.sql               # DB user creation (no passwords)
 ├── systemd/
 │   └── contrail-ingest.service # systemd unit for ingest daemon
@@ -160,7 +162,7 @@ contrail/
 - Python 3.10+
 - A Linux host (bare metal, VM, or Pi)
 
-### 1 — Install Dump1090-fa
+### 1: Install Dump1090-fa
 
 ```bash
 sudo apt update
@@ -173,28 +175,28 @@ Verify it's receiving:
 cat /run/dump1090-fa/aircraft.json | python3 -m json.tool | head -40
 ```
 
-### 2 — Create the database and users
+### 2: Create the database and users
 
 ```bash
 mysql -u root -p < sql/schema.sql
 mysql -u root -p < sql/users.sql
 ```
 
-### 3 — Configure environment
+### 3: Configure environment
 
 ```bash
 cp .env.example .env
-# edit .env — set DB credentials, dump1090 JSON path, poll interval
+# edit .env, set DB credentials, dump1090 JSON path, poll interval
 ```
 
-### 4 — Install Python dependencies
+### 4: Install Python dependencies
 
 ```bash
 cd ingest && pip install -r requirements.txt
 cd ../api && pip install -r requirements.txt
 ```
 
-### 5 — Run the ingest daemon
+### 5: Run the ingest daemon
 
 ```bash
 # test run first
@@ -206,13 +208,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now contrail-ingest
 ```
 
-### 6 — Run the API
+### 6: Run the API
 
 ```bash
 python3 api/app.py
 ```
 
-### 7 — Open the frontend
+### 7: Open the frontend
 
 Point a browser at your host IP. The map defaults to the last 3 hours of traffic.
 
@@ -220,40 +222,35 @@ Point a browser at your host IP. The map defaults to the last 3 hours of traffic
 
 ## Hardware Notes
 
-**RTL-SDR V3** — works out of the box on Linux with `rtl-sdr` package. No driver install required on most distros.
+**RTL-SDR V3** works out of the box on Linux with the `rtl-sdr` package. No driver install required on most distros.
 
-**Antenna** — a short 1090MHz dipole is sufficient for 100–150nm range under good conditions. A coaxial dipole or FlightAware Pro Stick Plus with built-in 1090MHz filter will extend range significantly if you want to improve coverage later.
+**Antenna** a short 1090MHz dipole is sufficient for 100-150nm range under decent conditions. A coaxial dipole or FlightAware Pro Stick Plus with a built-in filter will extend range if you want to go further later.
 
-**915MHz antennas will not work for ADS-B** — 915 and 1090MHz are too far apart for useful signal reception.
 
 ---
 
-## Planned
+## Roadmap
 
-- [ ] Contrail ingestion script — first working version
+- [ ] Contrail ingestion script, first working version
 - [ ] Schema finalized and tested
-- [ ] Flask API — time window endpoint
-- [ ] Leaflet frontend — live markers
-- [ ] Leaflet frontend — historical track rendering
+- [ ] Flask API, time window endpoint
+- [ ] Leaflet frontend, live markers
+- [ ] Leaflet frontend, historical track rendering
 - [ ] Time window selector UI (default 3h, adjustable to 24h+)
 - [ ] Historical playback scrubber
 - [ ] Systemd unit for ingest daemon
 - [ ] Data retention policy / purge job for old positions
 - [ ] Docker Compose deployment option
-- [ ] Aircraft type lookup (ICAO hex → type/registration)
+- [ ] Aircraft type lookup (ICAO hex to type/registration)
 
 ---
 
-## Why Not Just Use FlightAware / ADS-B Exchange?
+## About Me
 
-Those are great services for coverage contribution and lookup. Contrail is for people who want to own their data, run their own infrastructure, and have full historical access without depending on an external service or internet connectivity.
+I am a lot of things. I enjoy building things and learning how things work. I learn best when I can build and break things to understand how they flow underneath. I've spent 15 years in the IT world and feel like I have just scratched the surface. This project is aimed at sharpening my skills and is really my first dive into something project-based that is all my own. Goals are to pick up skills in Python, SQL, APIs, and more.
 
 ---
 
 ## License
 
 MIT
-
----
-
-*Built by Cole — part of the Crossroads IT homelab stack.*
