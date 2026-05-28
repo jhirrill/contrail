@@ -242,7 +242,7 @@ Point a browser at your host IP. The map defaults to the last 3 hours of traffic
 - [ ] Data retention policy / purge job for old positions
 - [ ] Docker Compose deployment option
 - [ ] Aircraft type lookup (ICAO hex to type/registration)
-
+- [ ] Multi-day aircraft tracking — flag and display aircraft seen across multiple days or flights
 ---
 
 ## About Me
